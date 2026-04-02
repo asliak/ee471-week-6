@@ -1,2 +1,2 @@
 # ee471-week-6
-"I am dummy 1"
+"No I am dummy 2"
