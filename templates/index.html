@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text-to-Speech</title>
+    <style>
+        :root {
+            --page-bg: #f5f5f7;
+            --card-bg: #ffffff;
+            --card-border: #6b63d9;
+            --title: #2d3748;
+            --muted: #8a94a6;
+            --label: #4a5568;
+            --field-border: #d9dce5;
+            --primary-start: #6c63db;
+            --primary-end: #8c53d9;
+            --primary-shadow: rgba(108, 99, 219, 0.28);
+            --neutral: #efefef;
+            --success-bg: #e9faea;
+            --success-border: #c8efca;
+            --success-text: #29b34a;
+            --audio-border: #e2e6ef;
+            --download: #18a0f0;
+            --download-dark: #1190da;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: var(--page-bg);
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--title);
+        }
+
+        .app-card {
+            width: min(100%, 470px);
+            background: var(--card-bg);
+            border: 6px solid var(--card-border);
+            border-radius: 10px;
+            padding: 28px 30px 32px;
+            box-shadow: 0 16px 35px rgba(80, 78, 142, 0.08);
+        }
+
+        .title {
+            margin: 0;
+            text-align: center;
+            font-size: clamp(2rem, 4vw, 2.25rem);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+
+        .subtitle {
+            margin: 6px 0 28px;
+            text-align: center;
+            font-size: 0.92rem;
+            color: var(--muted);
+        }
+
+        .field-label,
+        .section-title {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--label);
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 118px;
+            padding: 14px 16px;
+            border: 2px solid var(--field-border);
+            border-radius: 10px;
+            resize: vertical;
+            outline: none;
+            font: inherit;
+            color: #374151;
+            box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+        }
+
+        textarea:focus {
+            border-color: #9c96ea;
+            box-shadow: 0 0 0 4px rgba(108, 99, 219, 0.1);
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 0.9fr;
+            gap: 14px;
+            margin-top: 18px;
+        }
+
+        button,
+        .download-link {
+            border: 0;
+            border-radius: 8px;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+            text-decoration: none;
+            text-align: center;
+        }
+
+        .primary-btn,
+        .download-link {
+            color: #fff;
+            background: linear-gradient(90deg, var(--primary-start), var(--primary-end));
+            box-shadow: 0 10px 24px var(--primary-shadow);
+        }
+
+        .primary-btn {
+            padding: 15px 16px;
+        }
+
+        .secondary-btn {
+            padding: 15px 16px;
+            background: var(--neutral);
+            color: #4b5563;
+        }
+
+        button:hover,
+        .download-link:hover {
+            transform: translateY(-1px);
+        }
+
+        .status {
+            margin-top: 18px;
+            padding: 14px 16px;
+            border-radius: 8px;
+            font-size: 0.98rem;
+            font-weight: 700;
+            text-align: center;
+            display: none;
+        }
+
+        .status.success {
+            display: block;
+            background: var(--success-bg);
+            border: 1px solid var(--success-border);
+            color: var(--success-text);
+        }
+
+        .status.error {
+            display: block;
+            background: #fff0f0;
+            border: 1px solid #ffc9c9;
+            color: #dc2626;
+        }
+
+        .audio-card {
+            margin-top: 16px;
+            border: 2px solid var(--audio-border);
+            border-radius: 10px;
+            padding: 18px 16px 14px;
+            display: none;
+        }
+
+        .audio-card.visible {
+            display: block;
+        }
+
+        audio {
+            width: 100%;
+            margin: 10px 0 14px;
+        }
+
+        .download-link {
+            display: block;
+            width: 100%;
+            padding: 12px 14px;
+            background: linear-gradient(180deg, var(--download), var(--download-dark));
+            box-shadow: none;
+        }
+
+        @media (max-width: 520px) {
+            .app-card {
+                padding: 22px 18px 24px;
+            }
+
+            .actions {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="app-card">
+        <h1 class="title">Text-to-Speech</h1>
+        <p class="subtitle">Powered by Azure Cognitive Services</p>
+
+        <label class="field-label" for="textInput">Enter text to convert to speech:</label>
+        <textarea id="textInput" placeholder="Hello, EE471 class"></textarea>
+
+        <div class="actions">
+            <button id="ttsButton" class="primary-btn" type="button">Speaker Synthesize Speech</button>
+            <button id="clearButton" class="secondary-btn" type="button">Clear</button>
+        </div>
+
+        <div id="statusMessage" class="status" aria-live="polite"></div>
+
+        <section id="audioCard" class="audio-card">
+            <span class="section-title">Generated Audio:</span>
+            <audio id="audioPlayer" controls></audio>
+            <a id="downloadLink" class="download-link" download="speech.wav">Download Audio</a>
+        </section>
+    </main>
+
+    <script>
+        const textInput = document.getElementById("textInput");
+        const ttsButton = document.getElementById("ttsButton");
+        const clearButton = document.getElementById("clearButton");
+        const statusMessage = document.getElementById("statusMessage");
+        const audioCard = document.getElementById("audioCard");
+        const audioPlayer = document.getElementById("audioPlayer");
+        const downloadLink = document.getElementById("downloadLink");
+
+        ttsButton.addEventListener("click", convertText);
+        clearButton.addEventListener("click", clearForm);
+
+        function setStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = `status ${type}`;
+        }
+
+        function clearForm() {
+            textInput.value = "";
+            statusMessage.textContent = "";
+            statusMessage.className = "status";
+            audioPlayer.removeAttribute("src");
+            downloadLink.removeAttribute("href");
+            audioCard.classList.remove("visible");
+        }
+
+        async function convertText() {
+            const text = textInput.value.trim();
+
+            if (!text) {
+                setStatus("Please enter some text first.", "error");
+                return;
+            }
+
+            ttsButton.disabled = true;
+            setStatus("Generating speech...", "success");
+
+            try {
+                const response = await fetch("/synthesize", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text })
+                });
+
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || "Text-to-speech failed.");
+                }
+
+                const audioUrl = `${data.audio_url}?t=${Date.now()}`;
+                audioPlayer.src = audioUrl;
+                downloadLink.href = audioUrl;
+                audioCard.classList.add("visible");
+                setStatus("Check Speech synthesized successfully!", "success");
+            } catch (error) {
+                setStatus(error.message, "error");
+                audioCard.classList.remove("visible");
+            } finally {
+                ttsButton.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
