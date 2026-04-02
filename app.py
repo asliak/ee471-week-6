@@ -10,6 +10,7 @@ from flask import Flask, jsonify, render_template, request
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 UPLOAD_DIR = STATIC_DIR / "uploads"
+TTS_DIR = STATIC_DIR / "tts"
 ALLOWED_AUDIO_EXTENSIONS = {".wav"}
 
 load_dotenv()
@@ -18,6 +19,7 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+TTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def get_speech_config() -> speechsdk.SpeechConfig:
@@ -61,6 +63,41 @@ def result_to_response(result: speechsdk.SpeechRecognitionResult):
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/synthesize", methods=["POST"])
+def synthesize():
+    payload = request.get_json(silent=True) or {}
+    text = (payload.get("text") or "").strip()
+
+    if not text:
+        return jsonify({"success": False, "error": "Please enter text first."}), 400
+
+    try:
+        speech_config = get_speech_config()
+        speech_config.speech_synthesis_voice_name = "en-US-Ava:DragonHDLatestNeural"
+
+        filename = f"{uuid.uuid4().hex}.wav"
+        output_path = TTS_DIR / filename
+        audio_config = speechsdk.audio.AudioOutputConfig(filename=str(output_path))
+        synthesizer = speechsdk.SpeechSynthesizer(
+            speech_config=speech_config,
+            audio_config=audio_config,
+        )
+
+        result = synthesizer.speak_text_async(text).get()
+
+        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+            return jsonify({"success": True, "audio_url": f"/static/tts/{filename}"})
+
+        if result.reason == speechsdk.ResultReason.Canceled:
+            details = result.cancellation_details
+            error_details = getattr(details, "error_details", None) or str(details.reason)
+            return jsonify({"success": False, "error": error_details}), 500
+
+        return jsonify({"success": False, "error": "Speech synthesis failed."}), 500
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
 
 
 @app.route("/transcribe-file", methods=["POST"])
