@@ -2,9 +2,9 @@ import os
 import uuid
 from pathlib import Path
 
-from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request, send_from_directory
 import azure.cognitiveservices.speech as speechsdk
+from dotenv import load_dotenv
+from flask import Flask, jsonify, render_template, request
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -32,9 +32,32 @@ def get_speech_config() -> speechsdk.SpeechConfig:
             "AZURE_SPEECH_REGION in your .env file."
         )
 
-    config = speechsdk.SpeechConfig(subscription=speech_key, region=speech_region)
-    config.speech_synthesis_voice_name = "en-US-Ava:DragonHDLatestNeural"
-    return config
+    speech_config = speechsdk.SpeechConfig(
+        subscription=speech_key,
+        region=speech_region,
+    )
+    speech_config.speech_recognition_language = "en-US"
+    return speech_config
+
+
+def result_to_response(result: speechsdk.SpeechRecognitionResult):
+    if result.reason == speechsdk.ResultReason.RecognizedSpeech:
+        return jsonify({"success": True, "text": result.text})
+
+    if result.reason == speechsdk.ResultReason.NoMatch:
+        return jsonify(
+            {
+                "success": False,
+                "error": "No speech could be recognized.",
+            }
+        ), 400
+
+    if result.reason == speechsdk.ResultReason.Canceled:
+        details = result.cancellation_details
+        error_details = getattr(details, "error_details", None) or str(details.reason)
+        return jsonify({"success": False, "error": error_details}), 500
+
+    return jsonify({"success": False, "error": "Speech recognition failed."}), 500
 
 
 @app.route("/")
@@ -52,6 +75,8 @@ def synthesize():
 
     try:
         speech_config = get_speech_config()
+        speech_config.speech_synthesis_voice_name = "en-US-Ava:DragonHDLatestNeural"
+
         filename = f"{uuid.uuid4().hex}.wav"
         output_path = TTS_DIR / filename
         audio_config = speechsdk.audio.AudioOutputConfig(filename=str(output_path))
@@ -63,12 +88,7 @@ def synthesize():
         result = synthesizer.speak_text_async(text).get()
 
         if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-            return jsonify(
-                {
-                    "success": True,
-                    "audio_url": f"/static/tts/{filename}",
-                }
-            )
+            return jsonify({"success": True, "audio_url": f"/static/tts/{filename}"})
 
         if result.reason == speechsdk.ResultReason.Canceled:
             details = result.cancellation_details
@@ -80,8 +100,8 @@ def synthesize():
         return jsonify({"success": False, "error": str(exc)}), 500
 
 
-@app.route("/transcribe", methods=["POST"])
-def transcribe():
+@app.route("/transcribe-file", methods=["POST"])
+def transcribe_file():
     if "audio" not in request.files:
         return jsonify({"success": False, "error": "Please upload an audio file."}), 400
 
@@ -94,7 +114,7 @@ def transcribe():
         return jsonify(
             {
                 "success": False,
-                "error": "Please upload a WAV audio file for transcription.",
+                "error": "Please upload a WAV audio file.",
             }
         ), 400
 
@@ -109,33 +129,28 @@ def transcribe():
             speech_config=speech_config,
             audio_config=audio_config,
         )
-
         result = recognizer.recognize_once_async().get()
-
-        if result.reason == speechsdk.ResultReason.RecognizedSpeech:
-            return jsonify({"success": True, "text": result.text})
-
-        if result.reason == speechsdk.ResultReason.NoMatch:
-            return jsonify(
-                {
-                    "success": False,
-                    "error": "No speech could be recognized from that file.",
-                }
-            ), 400
-
-        if result.reason == speechsdk.ResultReason.Canceled:
-            details = result.cancellation_details
-            error_details = getattr(details, "error_details", None) or str(details.reason)
-            return jsonify({"success": False, "error": error_details}), 500
-
-        return jsonify({"success": False, "error": "Speech recognition failed."}), 500
+        return result_to_response(result)
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
+    finally:
+        if saved_path.exists():
+            saved_path.unlink()
 
 
-@app.route("/static/<path:filename>")
-def serve_static(filename: str):
-    return send_from_directory(STATIC_DIR, filename)
+@app.route("/transcribe-microphone", methods=["POST"])
+def transcribe_microphone():
+    try:
+        speech_config = get_speech_config()
+        audio_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
+        recognizer = speechsdk.SpeechRecognizer(
+            speech_config=speech_config,
+            audio_config=audio_config,
+        )
+        result = recognizer.recognize_once_async().get()
+        return result_to_response(result)
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
 
 
 if __name__ == "__main__":

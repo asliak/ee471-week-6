@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Text-to-Speech</title>
+    <title>Azure Speech Services</title>
     <style>
         :root {
             --page-bg: #f5f5f7;
@@ -17,10 +17,16 @@
             --primary-end: #8c53d9;
             --primary-shadow: rgba(108, 99, 219, 0.28);
             --neutral: #efefef;
+            --danger: #ff3b5c;
+            --danger-dark: #ec2348;
             --success-bg: #e9faea;
             --success-border: #c8efca;
             --success-text: #29b34a;
-            --audio-border: #e2e6ef;
+            --error-bg: #fff0f0;
+            --error-border: #ffc9c9;
+            --error-text: #dc2626;
+            --info-bg: #eef7ff;
+            --info-border: #bcdafc;
             --download: #18a0f0;
             --download-dark: #1190da;
         }
@@ -32,16 +38,25 @@
         body {
             margin: 0;
             min-height: 100vh;
-            display: grid;
-            place-items: center;
             padding: 24px;
             background: var(--page-bg);
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             color: var(--title);
         }
 
+        .page {
+            max-width: 1120px;
+            margin: 0 auto;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 32px;
+            align-items: start;
+        }
+
         .app-card {
-            width: min(100%, 470px);
             background: var(--card-bg);
             border: 6px solid var(--card-border);
             border-radius: 10px;
@@ -73,15 +88,20 @@
             color: var(--label);
         }
 
-        textarea {
+        textarea,
+        input[type="file"] {
             width: 100%;
-            min-height: 118px;
-            padding: 14px 16px;
             border: 2px solid var(--field-border);
             border-radius: 10px;
+            padding: 12px 14px;
+            font: inherit;
+            background: #fff;
+        }
+
+        textarea {
+            min-height: 118px;
             resize: vertical;
             outline: none;
-            font: inherit;
             color: #374151;
             box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
         }
@@ -91,81 +111,122 @@
             box-shadow: 0 0 0 4px rgba(108, 99, 219, 0.1);
         }
 
-        .actions {
+        input[type="file"]::file-selector-button {
+            margin-right: 10px;
+            padding: 8px 10px;
+            border: 0;
+            border-radius: 8px;
+            background: #efefef;
+            color: #374151;
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+        }
+
+        .actions,
+        .record-row {
             display: grid;
+            gap: 12px;
+        }
+
+        .actions {
+            margin-top: 16px;
             grid-template-columns: 1fr 0.9fr;
-            gap: 14px;
-            margin-top: 18px;
+        }
+
+        .record-row {
+            grid-template-columns: 1fr 1fr 1.4fr;
+            align-items: center;
         }
 
         button,
-        .download-link {
+        .download-link,
+        .copy-btn {
             border: 0;
             border-radius: 8px;
             font: inherit;
             font-weight: 700;
             cursor: pointer;
-            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-            text-decoration: none;
             text-align: center;
+            text-decoration: none;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         }
 
-        .primary-btn,
-        .download-link {
+        button:hover,
+        .download-link:hover,
+        .copy-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .primary-btn {
             color: #fff;
+            padding: 14px 16px;
             background: linear-gradient(90deg, var(--primary-start), var(--primary-end));
             box-shadow: 0 10px 24px var(--primary-shadow);
         }
 
-        .primary-btn {
-            padding: 15px 16px;
-        }
-
         .secondary-btn {
-            padding: 15px 16px;
+            padding: 14px 16px;
             background: var(--neutral);
             color: #4b5563;
         }
 
-        button:hover,
-        .download-link:hover {
-            transform: translateY(-1px);
+        .danger-btn {
+            color: #fff;
+            padding: 12px 14px;
+            background: linear-gradient(180deg, var(--danger), var(--danger-dark));
         }
 
         .status {
-            margin-top: 18px;
+            margin-top: 16px;
             padding: 14px 16px;
             border-radius: 8px;
             font-size: 0.98rem;
             font-weight: 700;
-            text-align: center;
             display: none;
         }
 
-        .status.success {
+        .status.show {
             display: block;
+        }
+
+        .status.success {
             background: var(--success-bg);
             border: 1px solid var(--success-border);
             color: var(--success-text);
         }
 
         .status.error {
-            display: block;
-            background: #fff0f0;
-            border: 1px solid #ffc9c9;
-            color: #dc2626;
+            background: var(--error-bg);
+            border: 1px solid var(--error-border);
+            color: var(--error-text);
+        }
+
+        .status.info {
+            background: #fff4f4;
+            border: 1px solid #ffa8a8;
+            color: #ef4444;
+        }
+
+        .audio-card,
+        .output-card {
+            margin-top: 16px;
+            border-radius: 10px;
+            padding: 16px;
         }
 
         .audio-card {
-            margin-top: 16px;
-            border: 2px solid var(--audio-border);
-            border-radius: 10px;
-            padding: 18px 16px 14px;
+            border: 2px solid #e2e6ef;
             display: none;
         }
 
         .audio-card.visible {
             display: block;
+        }
+
+        .output-card {
+            border: 2px solid var(--info-border);
+            background: var(--info-bg);
         }
 
         audio {
@@ -177,79 +238,164 @@
             display: block;
             width: 100%;
             padding: 12px 14px;
+            color: #fff;
             background: linear-gradient(180deg, var(--download), var(--download-dark));
-            box-shadow: none;
         }
 
-        @media (max-width: 520px) {
+        .output-box {
+            min-height: 74px;
+            padding: 14px;
+            border: 1px solid #d8e8fa;
+            border-radius: 8px;
+            background: #fff;
+            color: #374151;
+            white-space: pre-wrap;
+        }
+
+        .copy-btn {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #efefef;
+            color: #4b5563;
+        }
+
+        @media (max-width: 960px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 560px) {
             .app-card {
                 padding: 22px 18px 24px;
             }
 
-            .actions {
+            .actions,
+            .record-row {
                 grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
 <body>
-    <main class="app-card">
-        <h1 class="title">Text-to-Speech</h1>
-        <p class="subtitle">Powered by Azure Cognitive Services</p>
+    <main class="page">
+        <section class="grid">
+            <article class="app-card">
+                <h1 class="title">Text-to-Speech</h1>
+                <p class="subtitle">Powered by Azure Cognitive Services</p>
 
-        <label class="field-label" for="textInput">Enter text to convert to speech:</label>
-        <textarea id="textInput" placeholder="Hello, EE471 class"></textarea>
+                <label class="field-label" for="textInput">Enter text to convert to speech:</label>
+                <textarea id="textInput" placeholder="Hello, EE471 class"></textarea>
 
-        <div class="actions">
-            <button id="ttsButton" class="primary-btn" type="button">Speaker Synthesize Speech</button>
-            <button id="clearButton" class="secondary-btn" type="button">Clear</button>
-        </div>
+                <div class="actions">
+                    <button id="ttsButton" class="primary-btn" type="button">Synthesize Speech</button>
+                    <button id="ttsClearButton" class="secondary-btn" type="button">Clear</button>
+                </div>
 
-        <div id="statusMessage" class="status" aria-live="polite"></div>
+                <div id="ttsStatus" class="status" aria-live="polite"></div>
 
-        <section id="audioCard" class="audio-card">
-            <span class="section-title">Generated Audio:</span>
-            <audio id="audioPlayer" controls></audio>
-            <a id="downloadLink" class="download-link" download="speech.wav">Download Audio</a>
+                <section id="audioCard" class="audio-card">
+                    <span class="section-title">Generated Audio:</span>
+                    <audio id="audioPlayer" controls></audio>
+                    <a id="downloadLink" class="download-link" download="speech.wav">Download Audio</a>
+                </section>
+            </article>
+
+            <article class="app-card">
+                <h1 class="title">Speech-to-Text</h1>
+                <p class="subtitle">Powered by Azure Cognitive Services</p>
+
+                <label class="field-label">Record speech or upload audio to convert to text:</label>
+
+                <div class="record-row">
+                    <button id="recordButton" class="primary-btn" type="button">Start Recording</button>
+                    <button id="stopButton" class="danger-btn" type="button">Stop Recording</button>
+                    <input id="audioInput" type="file" accept=".wav">
+                </div>
+
+                <div id="recordingStatus" class="status" aria-live="polite"></div>
+
+                <div class="actions">
+                    <button id="transcribeButton" class="primary-btn" type="button">Transcribe Audio</button>
+                    <button id="sttClearButton" class="secondary-btn" type="button">Clear</button>
+                </div>
+
+                <section class="output-card">
+                    <span class="section-title">Transcription:</span>
+                    <div id="transcriptionOutput" class="output-box">Your transcription will appear here.</div>
+                    <button id="copyButton" class="copy-btn" type="button">Copy Text</button>
+                </section>
+
+                <div id="sttStatus" class="status"></div>
+            </article>
         </section>
     </main>
 
     <script>
         const textInput = document.getElementById("textInput");
         const ttsButton = document.getElementById("ttsButton");
-        const clearButton = document.getElementById("clearButton");
-        const statusMessage = document.getElementById("statusMessage");
+        const ttsClearButton = document.getElementById("ttsClearButton");
+        const ttsStatus = document.getElementById("ttsStatus");
         const audioCard = document.getElementById("audioCard");
         const audioPlayer = document.getElementById("audioPlayer");
         const downloadLink = document.getElementById("downloadLink");
 
-        ttsButton.addEventListener("click", convertText);
-        clearButton.addEventListener("click", clearForm);
+        const recordButton = document.getElementById("recordButton");
+        const stopButton = document.getElementById("stopButton");
+        const transcribeButton = document.getElementById("transcribeButton");
+        const sttClearButton = document.getElementById("sttClearButton");
+        const copyButton = document.getElementById("copyButton");
+        const audioInput = document.getElementById("audioInput");
+        const recordingStatus = document.getElementById("recordingStatus");
+        const sttStatus = document.getElementById("sttStatus");
+        const transcriptionOutput = document.getElementById("transcriptionOutput");
 
-        function setStatus(message, type) {
-            statusMessage.textContent = message;
-            statusMessage.className = `status ${type}`;
+        let isMicrophoneListening = false;
+
+        ttsButton.addEventListener("click", convertText);
+        ttsClearButton.addEventListener("click", clearTtsForm);
+        recordButton.addEventListener("click", startMicrophoneRecognition);
+        stopButton.addEventListener("click", stopMicrophoneHint);
+        transcribeButton.addEventListener("click", transcribeUploadedFile);
+        sttClearButton.addEventListener("click", clearSttForm);
+        copyButton.addEventListener("click", copyTranscription);
+
+        function setStatus(element, message, type) {
+            element.textContent = message;
+            element.className = `status show ${type}`;
         }
 
-        function clearForm() {
+        function hideStatus(element) {
+            element.textContent = "";
+            element.className = "status";
+        }
+
+        function clearTtsForm() {
             textInput.value = "";
-            statusMessage.textContent = "";
-            statusMessage.className = "status";
+            hideStatus(ttsStatus);
             audioPlayer.removeAttribute("src");
             downloadLink.removeAttribute("href");
             audioCard.classList.remove("visible");
         }
 
+        function clearSttForm() {
+            audioInput.value = "";
+            transcriptionOutput.textContent = "Your transcription will appear here.";
+            hideStatus(recordingStatus);
+            hideStatus(sttStatus);
+            isMicrophoneListening = false;
+            recordButton.disabled = false;
+        }
+
         async function convertText() {
             const text = textInput.value.trim();
-
             if (!text) {
-                setStatus("Please enter some text first.", "error");
+                setStatus(ttsStatus, "Please enter some text first.", "error");
                 return;
             }
 
             ttsButton.disabled = true;
-            setStatus("Generating speech...", "success");
+            setStatus(ttsStatus, "Generating speech...", "success");
 
             try {
                 const response = await fetch("/synthesize", {
@@ -267,12 +413,104 @@
                 audioPlayer.src = audioUrl;
                 downloadLink.href = audioUrl;
                 audioCard.classList.add("visible");
-                setStatus("Check Speech synthesized successfully!", "success");
+                setStatus(ttsStatus, "Speech synthesized successfully!", "success");
             } catch (error) {
-                setStatus(error.message, "error");
+                setStatus(ttsStatus, error.message, "error");
                 audioCard.classList.remove("visible");
             } finally {
                 ttsButton.disabled = false;
+            }
+        }
+
+        async function startMicrophoneRecognition() {
+            if (isMicrophoneListening) {
+                return;
+            }
+
+            isMicrophoneListening = true;
+            recordButton.disabled = true;
+            setStatus(recordingStatus, "Recording... Speak into your microphone now.", "info");
+            hideStatus(sttStatus);
+
+            try {
+                const response = await fetch("/transcribe-microphone", {
+                    method: "POST"
+                });
+
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || "Speech-to-text failed.");
+                }
+
+                transcriptionOutput.textContent = data.text;
+                hideStatus(recordingStatus);
+                setStatus(sttStatus, "Audio transcribed successfully!", "success");
+            } catch (error) {
+                setStatus(sttStatus, error.message, "error");
+                setStatus(recordingStatus, "Microphone transcription stopped.", "error");
+            } finally {
+                isMicrophoneListening = false;
+                recordButton.disabled = false;
+            }
+        }
+
+        function stopMicrophoneHint() {
+            if (!isMicrophoneListening) {
+                setStatus(recordingStatus, "No active microphone session to stop.", "error");
+                return;
+            }
+
+            setStatus(
+                recordingStatus,
+                "The backend listens for a single utterance and stops automatically after you speak.",
+                "info"
+            );
+        }
+
+        async function transcribeUploadedFile() {
+            hideStatus(recordingStatus);
+            hideStatus(sttStatus);
+
+            if (!audioInput.files.length) {
+                setStatus(sttStatus, "Please choose a WAV file first.", "error");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("audio", audioInput.files[0]);
+            transcriptionOutput.textContent = "Working...";
+
+            try {
+                const response = await fetch("/transcribe-file", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || "Speech-to-text failed.");
+                }
+
+                transcriptionOutput.textContent = data.text;
+                setStatus(sttStatus, "Audio transcribed successfully!", "success");
+            } catch (error) {
+                transcriptionOutput.textContent = "Your transcription will appear here.";
+                setStatus(sttStatus, error.message, "error");
+            }
+        }
+
+        async function copyTranscription() {
+            const text = transcriptionOutput.textContent.trim();
+            if (!text || text === "Your transcription will appear here." || text === "Working...") {
+                setStatus(sttStatus, "There is no transcription to copy yet.", "error");
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(text);
+                setStatus(sttStatus, "Transcription copied to clipboard.", "success");
+            } catch (error) {
+                setStatus(sttStatus, "Copy failed. Please copy the text manually.", "error");
             }
         }
     </script>
