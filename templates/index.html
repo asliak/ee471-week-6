@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Text-to-Speech</title>
+    <title>Speech-to-Text</title>
     <style>
         :root {
             --page-bg: #f5f5f7;
@@ -17,12 +17,16 @@
             --primary-end: #8c53d9;
             --primary-shadow: rgba(108, 99, 219, 0.28);
             --neutral: #efefef;
+            --danger: #ff3b5c;
+            --danger-dark: #ec2348;
+            --info-bg: #eef7ff;
+            --info-border: #bcdafc;
             --success-bg: #e9faea;
             --success-border: #c8efca;
             --success-text: #29b34a;
-            --audio-border: #e2e6ef;
-            --download: #18a0f0;
-            --download-dark: #1190da;
+            --error-bg: #fff0f0;
+            --error-border: #ffc9c9;
+            --error-text: #dc2626;
         }
 
         * {
@@ -41,7 +45,7 @@
         }
 
         .app-card {
-            width: min(100%, 470px);
+            width: min(100%, 500px);
             background: var(--card-bg);
             border: 6px solid var(--card-border);
             border-radius: 10px;
@@ -52,7 +56,7 @@
         .title {
             margin: 0;
             text-align: center;
-            font-size: clamp(2rem, 4vw, 2.25rem);
+            font-size: clamp(2rem, 4vw, 2.2rem);
             font-weight: 800;
             letter-spacing: -0.03em;
         }
@@ -64,8 +68,7 @@
             color: var(--muted);
         }
 
-        .field-label,
-        .section-title {
+        .section-label {
             display: block;
             margin-bottom: 10px;
             font-size: 0.95rem;
@@ -73,119 +76,152 @@
             color: var(--label);
         }
 
-        textarea {
-            width: 100%;
-            min-height: 118px;
-            padding: 14px 16px;
-            border: 2px solid var(--field-border);
-            border-radius: 10px;
-            resize: vertical;
-            outline: none;
-            font: inherit;
-            color: #374151;
-            box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+        .record-row,
+        .actions {
+            display: grid;
+            gap: 12px;
         }
 
-        textarea:focus {
-            border-color: #9c96ea;
-            box-shadow: 0 0 0 4px rgba(108, 99, 219, 0.1);
+        .record-row {
+            grid-template-columns: 1fr 1fr 1.4fr;
+            align-items: center;
         }
 
         .actions {
-            display: grid;
+            margin-top: 16px;
             grid-template-columns: 1fr 0.9fr;
-            gap: 14px;
-            margin-top: 18px;
         }
 
         button,
-        .download-link {
+        .copy-btn,
+        input[type="file"]::file-selector-button {
             border: 0;
             border-radius: 8px;
             font: inherit;
             font-weight: 700;
-            cursor: pointer;
-            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-            text-decoration: none;
-            text-align: center;
         }
 
-        .primary-btn,
-        .download-link {
+        button,
+        .copy-btn {
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        button:hover,
+        .copy-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .primary-btn {
             color: #fff;
+            padding: 14px 16px;
             background: linear-gradient(90deg, var(--primary-start), var(--primary-end));
             box-shadow: 0 10px 24px var(--primary-shadow);
         }
 
-        .primary-btn {
-            padding: 15px 16px;
-        }
-
         .secondary-btn {
-            padding: 15px 16px;
+            padding: 14px 16px;
             background: var(--neutral);
             color: #4b5563;
         }
 
-        button:hover,
-        .download-link:hover {
-            transform: translateY(-1px);
+        .danger-btn {
+            color: #fff;
+            padding: 12px 14px;
+            background: linear-gradient(180deg, var(--danger), var(--danger-dark));
+        }
+
+        .mic-btn {
+            color: #fff;
+            padding: 12px 14px;
+            background: linear-gradient(90deg, var(--primary-start), var(--primary-end));
+        }
+
+        input[type="file"] {
+            width: 100%;
+            border: 2px solid var(--field-border);
+            border-radius: 8px;
+            padding: 10px;
+            background: #fff;
+            font: inherit;
+        }
+
+        input[type="file"]::file-selector-button {
+            margin-right: 10px;
+            padding: 8px 10px;
+            background: #efefef;
+            color: #374151;
+            cursor: pointer;
         }
 
         .status {
-            margin-top: 18px;
+            margin-top: 14px;
             padding: 14px 16px;
             border-radius: 8px;
             font-size: 0.98rem;
             font-weight: 700;
-            text-align: center;
             display: none;
         }
 
-        .status.success {
+        .status.show {
             display: block;
+        }
+
+        .status.info {
+            background: #fff4f4;
+            border: 1px solid #ffa8a8;
+            color: #ef4444;
+        }
+
+        .status.success {
             background: var(--success-bg);
             border: 1px solid var(--success-border);
             color: var(--success-text);
         }
 
         .status.error {
-            display: block;
-            background: #fff0f0;
-            border: 1px solid #ffc9c9;
-            color: #dc2626;
+            background: var(--error-bg);
+            border: 1px solid var(--error-border);
+            color: var(--error-text);
         }
 
-        .audio-card {
+        .output-card {
             margin-top: 16px;
-            border: 2px solid var(--audio-border);
+            border: 2px solid var(--info-border);
             border-radius: 10px;
-            padding: 18px 16px 14px;
-            display: none;
+            padding: 16px;
+            background: var(--info-bg);
         }
 
-        .audio-card.visible {
+        .output-title {
             display: block;
+            margin-bottom: 10px;
+            font-weight: 700;
         }
 
-        audio {
-            width: 100%;
-            margin: 10px 0 14px;
+        .output-box {
+            min-height: 74px;
+            padding: 14px;
+            border: 1px solid #d8e8fa;
+            border-radius: 8px;
+            background: #fff;
+            color: #374151;
+            white-space: pre-wrap;
         }
 
-        .download-link {
-            display: block;
-            width: 100%;
-            padding: 12px 14px;
-            background: linear-gradient(180deg, var(--download), var(--download-dark));
-            box-shadow: none;
+        .copy-btn {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #efefef;
+            color: #4b5563;
         }
 
-        @media (max-width: 520px) {
+        @media (max-width: 560px) {
             .app-card {
                 padding: 22px 18px 24px;
             }
 
+            .record-row,
             .actions {
                 grid-template-columns: 1fr;
             }
@@ -194,85 +230,160 @@
 </head>
 <body>
     <main class="app-card">
-        <h1 class="title">Text-to-Speech</h1>
+        <h1 class="title">Speech-to-Text</h1>
         <p class="subtitle">Powered by Azure Cognitive Services</p>
 
-        <label class="field-label" for="textInput">Enter text to convert to speech:</label>
-        <textarea id="textInput" placeholder="Hello, EE471 class"></textarea>
+        <label class="section-label">Record speech or upload audio to convert to text:</label>
+
+        <div class="record-row">
+            <button id="recordButton" class="mic-btn" type="button">Start Recording</button>
+            <button id="stopButton" class="danger-btn" type="button">Stop Recording</button>
+            <input id="audioInput" type="file" accept=".wav">
+        </div>
+
+        <div id="recordingStatus" class="status" aria-live="polite"></div>
 
         <div class="actions">
-            <button id="ttsButton" class="primary-btn" type="button">Speaker Synthesize Speech</button>
+            <button id="transcribeButton" class="primary-btn" type="button">Transcribe Audio</button>
             <button id="clearButton" class="secondary-btn" type="button">Clear</button>
         </div>
 
-        <div id="statusMessage" class="status" aria-live="polite"></div>
-
-        <section id="audioCard" class="audio-card">
-            <span class="section-title">Generated Audio:</span>
-            <audio id="audioPlayer" controls></audio>
-            <a id="downloadLink" class="download-link" download="speech.wav">Download Audio</a>
+        <section class="output-card">
+            <span class="output-title">Transcription:</span>
+            <div id="transcriptionOutput" class="output-box">Your transcription will appear here.</div>
+            <button id="copyButton" class="copy-btn" type="button">Copy Text</button>
         </section>
+
+        <div id="resultStatus" class="status"></div>
     </main>
 
     <script>
-        const textInput = document.getElementById("textInput");
-        const ttsButton = document.getElementById("ttsButton");
+        const recordButton = document.getElementById("recordButton");
+        const stopButton = document.getElementById("stopButton");
+        const transcribeButton = document.getElementById("transcribeButton");
         const clearButton = document.getElementById("clearButton");
-        const statusMessage = document.getElementById("statusMessage");
-        const audioCard = document.getElementById("audioCard");
-        const audioPlayer = document.getElementById("audioPlayer");
-        const downloadLink = document.getElementById("downloadLink");
+        const copyButton = document.getElementById("copyButton");
+        const audioInput = document.getElementById("audioInput");
+        const recordingStatus = document.getElementById("recordingStatus");
+        const resultStatus = document.getElementById("resultStatus");
+        const transcriptionOutput = document.getElementById("transcriptionOutput");
 
-        ttsButton.addEventListener("click", convertText);
+        let isMicrophoneListening = false;
+
+        recordButton.addEventListener("click", startMicrophoneRecognition);
+        stopButton.addEventListener("click", stopMicrophoneHint);
+        transcribeButton.addEventListener("click", transcribeUploadedFile);
         clearButton.addEventListener("click", clearForm);
+        copyButton.addEventListener("click", copyTranscription);
 
-        function setStatus(message, type) {
-            statusMessage.textContent = message;
-            statusMessage.className = `status ${type}`;
+        function setStatus(element, message, type) {
+            element.textContent = message;
+            element.className = `status show ${type}`;
+        }
+
+        function hideStatus(element) {
+            element.textContent = "";
+            element.className = "status";
         }
 
         function clearForm() {
-            textInput.value = "";
-            statusMessage.textContent = "";
-            statusMessage.className = "status";
-            audioPlayer.removeAttribute("src");
-            downloadLink.removeAttribute("href");
-            audioCard.classList.remove("visible");
+            audioInput.value = "";
+            transcriptionOutput.textContent = "Your transcription will appear here.";
+            hideStatus(recordingStatus);
+            hideStatus(resultStatus);
+            isMicrophoneListening = false;
+            recordButton.disabled = false;
         }
 
-        async function convertText() {
-            const text = textInput.value.trim();
-
-            if (!text) {
-                setStatus("Please enter some text first.", "error");
+        async function startMicrophoneRecognition() {
+            if (isMicrophoneListening) {
                 return;
             }
 
-            ttsButton.disabled = true;
-            setStatus("Generating speech...", "success");
+            isMicrophoneListening = true;
+            recordButton.disabled = true;
+            setStatus(recordingStatus, "Recording... Speak into your microphone now.", "info");
+            hideStatus(resultStatus);
 
             try {
-                const response = await fetch("/synthesize", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text })
+                const response = await fetch("/transcribe-microphone", {
+                    method: "POST"
                 });
 
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || "Text-to-speech failed.");
+                    throw new Error(data.error || "Speech-to-text failed.");
                 }
 
-                const audioUrl = `${data.audio_url}?t=${Date.now()}`;
-                audioPlayer.src = audioUrl;
-                downloadLink.href = audioUrl;
-                audioCard.classList.add("visible");
-                setStatus("Check Speech synthesized successfully!", "success");
+                transcriptionOutput.textContent = data.text;
+                setStatus(resultStatus, "Audio transcribed successfully!", "success");
+                hideStatus(recordingStatus);
             } catch (error) {
-                setStatus(error.message, "error");
-                audioCard.classList.remove("visible");
+                setStatus(resultStatus, error.message, "error");
+                setStatus(recordingStatus, "Microphone transcription stopped.", "error");
             } finally {
-                ttsButton.disabled = false;
+                isMicrophoneListening = false;
+                recordButton.disabled = false;
+            }
+        }
+
+        function stopMicrophoneHint() {
+            if (!isMicrophoneListening) {
+                setStatus(recordingStatus, "No active microphone session to stop.", "error");
+                return;
+            }
+
+            setStatus(
+                recordingStatus,
+                "The backend listens for a single utterance and will stop automatically after you speak.",
+                "info"
+            );
+        }
+
+        async function transcribeUploadedFile() {
+            hideStatus(recordingStatus);
+            hideStatus(resultStatus);
+
+            if (!audioInput.files.length) {
+                setStatus(resultStatus, "Please choose a WAV file first.", "error");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("audio", audioInput.files[0]);
+            transcriptionOutput.textContent = "Working...";
+
+            try {
+                const response = await fetch("/transcribe-file", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || "Speech-to-text failed.");
+                }
+
+                transcriptionOutput.textContent = data.text;
+                setStatus(resultStatus, "Audio transcribed successfully!", "success");
+            } catch (error) {
+                transcriptionOutput.textContent = "Your transcription will appear here.";
+                setStatus(resultStatus, error.message, "error");
+            }
+        }
+
+        async function copyTranscription() {
+            const text = transcriptionOutput.textContent.trim();
+            if (!text || text === "Your transcription will appear here." || text === "Working...") {
+                setStatus(resultStatus, "There is no transcription to copy yet.", "error");
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(text);
+                setStatus(resultStatus, "Transcription copied to clipboard.", "success");
+            } catch (error) {
+                setStatus(resultStatus, "Copy failed. Please copy the text manually.", "error");
             }
         }
     </script>
