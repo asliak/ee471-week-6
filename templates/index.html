@@ -51,7 +51,7 @@
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 32px;
             align-items: start;
         }
@@ -89,7 +89,8 @@
         }
 
         textarea,
-        input[type="file"] {
+        input[type="file"],
+        select {
             width: 100%;
             border: 2px solid var(--field-border);
             border-radius: 10px;
@@ -259,6 +260,11 @@
             color: #4b5563;
         }
 
+        .stack {
+            display: grid;
+            gap: 14px;
+        }
+
         @media (max-width: 960px) {
             .grid {
                 grid-template-columns: 1fr;
@@ -328,6 +334,39 @@
 
                 <div id="sttStatus" class="status"></div>
             </article>
+
+            <article class="app-card">
+                <h1 class="title">Speech Translation</h1>
+                <p class="subtitle">Powered by Azure Cognitive Services</p>
+
+                <div class="stack">
+                    <label class="field-label" for="targetLanguage">Translate spoken English into:</label>
+                    <select id="targetLanguage">
+                        <option value="it">Italian</option>
+                        <option value="tr">Turkish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="es">Spanish</option>
+                    </select>
+                </div>
+
+                <div class="actions">
+                    <button id="translateButton" class="primary-btn" type="button">Translate Microphone</button>
+                    <button id="translationClearButton" class="secondary-btn" type="button">Clear</button>
+                </div>
+
+                <div id="translationStatus" class="status"></div>
+
+                <section class="output-card">
+                    <span class="section-title">Recognized English:</span>
+                    <div id="recognizedOutput" class="output-box">Your recognized speech will appear here.</div>
+                </section>
+
+                <section class="output-card">
+                    <span class="section-title">Translated Text:</span>
+                    <div id="translatedOutput" class="output-box">Your translation will appear here.</div>
+                </section>
+            </article>
         </section>
     </main>
 
@@ -349,8 +388,15 @@
         const recordingStatus = document.getElementById("recordingStatus");
         const sttStatus = document.getElementById("sttStatus");
         const transcriptionOutput = document.getElementById("transcriptionOutput");
+        const targetLanguage = document.getElementById("targetLanguage");
+        const translateButton = document.getElementById("translateButton");
+        const translationClearButton = document.getElementById("translationClearButton");
+        const translationStatus = document.getElementById("translationStatus");
+        const recognizedOutput = document.getElementById("recognizedOutput");
+        const translatedOutput = document.getElementById("translatedOutput");
 
         let isMicrophoneListening = false;
+        let isTranslationListening = false;
 
         ttsButton.addEventListener("click", convertText);
         ttsClearButton.addEventListener("click", clearTtsForm);
@@ -359,6 +405,8 @@
         transcribeButton.addEventListener("click", transcribeUploadedFile);
         sttClearButton.addEventListener("click", clearSttForm);
         copyButton.addEventListener("click", copyTranscription);
+        translateButton.addEventListener("click", translateMicrophone);
+        translationClearButton.addEventListener("click", clearTranslationForm);
 
         function setStatus(element, message, type) {
             element.textContent = message;
@@ -385,6 +433,14 @@
             hideStatus(sttStatus);
             isMicrophoneListening = false;
             recordButton.disabled = false;
+        }
+
+        function clearTranslationForm() {
+            recognizedOutput.textContent = "Your recognized speech will appear here.";
+            translatedOutput.textContent = "Your translation will appear here.";
+            hideStatus(translationStatus);
+            isTranslationListening = false;
+            translateButton.disabled = false;
         }
 
         async function convertText() {
@@ -511,6 +567,46 @@
                 setStatus(sttStatus, "Transcription copied to clipboard.", "success");
             } catch (error) {
                 setStatus(sttStatus, "Copy failed. Please copy the text manually.", "error");
+            }
+        }
+
+        async function translateMicrophone() {
+            if (isTranslationListening) {
+                return;
+            }
+
+            isTranslationListening = true;
+            translateButton.disabled = true;
+            hideStatus(translationStatus);
+            recognizedOutput.textContent = "Listening...";
+            translatedOutput.textContent = "Waiting for translation...";
+
+            try {
+                const response = await fetch("/translate-microphone", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ target_language: targetLanguage.value })
+                });
+
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || "Speech translation failed.");
+                }
+
+                recognizedOutput.textContent = data.recognized_text;
+                translatedOutput.textContent = data.translated_text;
+                setStatus(
+                    translationStatus,
+                    `Translated to ${data.target_language_name} successfully!`,
+                    "success"
+                );
+            } catch (error) {
+                recognizedOutput.textContent = "Your recognized speech will appear here.";
+                translatedOutput.textContent = "Your translation will appear here.";
+                setStatus(translationStatus, error.message, "error");
+            } finally {
+                isTranslationListening = false;
+                translateButton.disabled = false;
             }
         }
     </script>

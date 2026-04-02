@@ -12,6 +12,13 @@ STATIC_DIR = BASE_DIR / "static"
 UPLOAD_DIR = STATIC_DIR / "uploads"
 TTS_DIR = STATIC_DIR / "tts"
 ALLOWED_AUDIO_EXTENSIONS = {".wav"}
+SUPPORTED_TRANSLATION_LANGUAGES = {
+    "it": "Italian",
+    "tr": "Turkish",
+    "fr": "French",
+    "de": "German",
+    "es": "Spanish",
+}
 
 load_dotenv()
 
@@ -58,6 +65,38 @@ def result_to_response(result: speechsdk.SpeechRecognitionResult):
         return jsonify({"success": False, "error": error_details}), 500
 
     return jsonify({"success": False, "error": "Speech recognition failed."}), 500
+
+
+def translation_result_to_response(
+    result: speechsdk.translation.TranslationRecognitionResult,
+    target_language: str,
+):
+    if result.reason == speechsdk.ResultReason.TranslatedSpeech:
+        translated_text = result.translations.get(target_language, "")
+        return jsonify(
+            {
+                "success": True,
+                "recognized_text": result.text,
+                "translated_text": translated_text,
+                "target_language": target_language,
+                "target_language_name": SUPPORTED_TRANSLATION_LANGUAGES[target_language],
+            }
+        )
+
+    if result.reason == speechsdk.ResultReason.NoMatch:
+        return jsonify(
+            {
+                "success": False,
+                "error": "No speech could be recognized for translation.",
+            }
+        ), 400
+
+    if result.reason == speechsdk.ResultReason.Canceled:
+        details = result.cancellation_details
+        error_details = getattr(details, "error_details", None) or str(details.reason)
+        return jsonify({"success": False, "error": error_details}), 500
+
+    return jsonify({"success": False, "error": "Speech translation failed."}), 500
 
 
 @app.route("/")
@@ -149,6 +188,42 @@ def transcribe_microphone():
         )
         result = recognizer.recognize_once_async().get()
         return result_to_response(result)
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/translate-microphone", methods=["POST"])
+def translate_microphone():
+    payload = request.get_json(silent=True) or {}
+    target_language = (payload.get("target_language") or "it").strip().lower()
+
+    if target_language not in SUPPORTED_TRANSLATION_LANGUAGES:
+        return jsonify({"success": False, "error": "Unsupported target language."}), 400
+
+    try:
+        speech_key = os.getenv("AZURE_SPEECH_KEY")
+        speech_region = os.getenv("AZURE_SPEECH_REGION")
+
+        if not speech_key or not speech_region:
+            raise RuntimeError(
+                "Missing Azure Speech credentials. Set AZURE_SPEECH_KEY and "
+                "AZURE_SPEECH_REGION in your .env file."
+            )
+
+        translation_config = speechsdk.translation.SpeechTranslationConfig(
+            subscription=speech_key,
+            region=speech_region,
+        )
+        translation_config.speech_recognition_language = "en-US"
+        translation_config.add_target_language(target_language)
+
+        audio_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
+        recognizer = speechsdk.translation.TranslationRecognizer(
+            translation_config=translation_config,
+            audio_config=audio_config,
+        )
+        result = recognizer.recognize_once_async().get()
+        return translation_result_to_response(result, target_language)
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
 
